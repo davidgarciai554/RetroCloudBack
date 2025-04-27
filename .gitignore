@@ -1,5 +1,15 @@
+# Variables de entorno
 .env
+
+# Dependencias
 requirements.txt
+
+# Caché de Python
 __pycache__/
+*.py[cod]
+
+# Editor de código
 .vscode/
+
+# Fichero específico
 sys.py

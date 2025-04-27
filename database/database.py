@@ -2,7 +2,7 @@ import os
 import sqlite3
 
 # Nombre de la DB y ruta al SQL
-DB_FILE    = "database.db"
+DB_FILE    = "database/database.db"
 SCHEMA_FILE = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 def init_db():
