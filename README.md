@@ -1,5 +1,5 @@
 # RetroCloud
-Co-authors: Jorge Garrido AND David Garcia
+Co-authors: Jorge Garrido AND David Garcia  
 This is a project to create an accesible interface to storage and download your saved games on a server on your own raspberry with a database that would help us search games and save profiles
 
 the intended functionality is to have a web page as a user interface, and save or download our own games, mods, or patches.
