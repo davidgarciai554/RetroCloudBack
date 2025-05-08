@@ -34,3 +34,8 @@ This way, we could reliably acces to our games wereever we are.
   * RASPBERRY CONNECTION
   * static router port and VPN for easy connection
   * using file transfer protocol ftp (security not needed)
+
+Comando para levatar el servidor:
+```
+python -m uvicorn main:app --reload
+```
