@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Body
 from functools import lru_cache
 from ext_class.config import Settings
 from contextlib import asynccontextmanager
@@ -9,6 +9,7 @@ import sqlite3
 import os
 import shutil
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 def merge_juegos_db():
     import sqlite3
@@ -219,3 +220,27 @@ def juegos_por_consola(consola_id: int, db: sqlite3.Connection = Depends(get_db)
             "fecha_lanzamiento": j[2]
         } for j in juegos
     ]
+
+
+
+load_dotenv()
+PRINCIPIO_RUTA = os.getenv("PRINCIPIO_RUTA", "")
+
+@app.post("/registrar_juego")
+def registrar_juego(juego_id: int = Body(...), consola_id: int = Body(...), db: sqlite3.Connection = Depends(get_db)):
+    """
+    Registra un juego asignando una ruta predeterminada en JUEGOS_CONSOLAS.RUTA_NUBE.
+    """
+    cursor = db.cursor()
+    # Obtener nombres
+    cursor.execute("SELECT e.NOMBRE, c.NOMBRE, j.NOMBRE FROM JUEGOS j JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID JOIN CONSOLAS c ON jc.CONSOLA_ID = c.ID JOIN EMPRESAS e ON c.EMPRESA_ID = e.ID WHERE j.ID = ? AND c.ID = ?", (juego_id, consola_id))
+    row = cursor.fetchone()
+    if not row:
+        return {"error": "No se encontró la combinación de juego y consola"}
+    nombre_empresa, nombre_consola, nombre_juego = row
+    nombre_juego = nombre_juego.strip()
+    ruta = f"{PRINCIPIO_RUTA}/{nombre_empresa}/{nombre_consola}/{nombre_juego}.zip"
+    # Actualizar la ruta en JUEGOS_CONSOLAS
+    cursor.execute("UPDATE JUEGOS_CONSOLAS SET RUTA_NUBE = ? WHERE JUEGO_ID = ? AND CONSOLA_ID = ?", (ruta, juego_id, consola_id))
+    db.commit()
+    return {"ruta": ruta}
