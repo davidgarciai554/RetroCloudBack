@@ -11,43 +11,37 @@ import shutil
 from fastapi.middleware.cors import CORSMiddleware
 
 def merge_juegos_db():
-    # Ruta de las bases de datos
-    db_main = "database/database.db"
-    db_juegos = "database/juegos.db"
-    if not os.path.exists(db_juegos):
-        return  # No hay nada que migrar
-
-    conn_main = sqlite3.connect(db_main)
-    conn_juegos = sqlite3.connect(db_juegos)
-    cursor_main = conn_main.cursor()
-    cursor_juegos = conn_juegos.cursor()
-
-    # Listar tablas de juegos.db
-    cursor_juegos.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tablas = [row[0] for row in cursor_juegos.fetchall()]
-
-    for tabla in tablas:
-        # Obtener el esquema de la tabla
-        cursor_juegos.execute(f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{tabla}';")
-        esquema = cursor_juegos.fetchone()[0]
-        try:
-            cursor_main.execute(esquema)
-        except sqlite3.OperationalError:
-            pass  # La tabla ya existe
-
-        # Copiar los datos
-        cursor_juegos.execute(f"SELECT * FROM {tabla}")
-        filas = cursor_juegos.fetchall()
-        if filas:
-            placeholders = ",".join(["?"] * len(filas[0]))
-            try:
-                cursor_main.executemany(f"INSERT OR IGNORE INTO {tabla} VALUES ({placeholders})", filas)
-            except Exception:
-                pass  # Si hay conflicto de columnas, ignora
-
-    conn_main.commit()
-    conn_main.close()
-    conn_juegos.close()
+    import sqlite3
+    import os
+    db_path = os.path.join("database", "database.db")
+    juegos_db_path = os.path.join("database", "juegos.db")
+    if not os.path.exists(juegos_db_path):
+        print(f"juegos.db not found at {juegos_db_path}")
+        return
+    conn_main = sqlite3.connect(db_path)
+    conn_juegos = sqlite3.connect(juegos_db_path)
+    try:
+        main_cur = conn_main.cursor()
+        juegos_cur = conn_juegos.cursor()
+        # Helper to merge any table by matching columns
+        def merge_table(table):
+            main_cur.execute(f"PRAGMA table_info({table})")
+            main_cols = [col[1] for col in main_cur.fetchall()]
+            juegos_cur.execute(f"PRAGMA table_info({table})")
+            juegos_cols = [col[1] for col in juegos_cur.fetchall()]
+            common_cols = [col for col in juegos_cols if col in main_cols]
+            col_str = ", ".join(common_cols)
+            placeholders = ", ".join(["?" for _ in common_cols])
+            rows = juegos_cur.execute(f"SELECT {col_str} FROM {table}").fetchall()
+            for row in rows:
+                main_cur.execute(f"INSERT OR IGNORE INTO {table} ({col_str}) VALUES ({placeholders})", row)
+        # Merge EMPRESAS, CONSOLAS, JUEGOS, JUEGOS_CONSOLAS
+        for table in ["EMPRESAS", "CONSOLAS", "JUEGOS", "JUEGOS_CONSOLAS"]:
+            merge_table(table)
+        conn_main.commit()
+    finally:
+        conn_main.close()
+        conn_juegos.close()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -152,24 +146,24 @@ def usuarios_por_rol(
 @app.get("/empresas")
 def empresas_con_juegos_con_route(db: sqlite3.Connection = Depends(get_db)):
     """
-    Devuelve las empresas que tengan al menos un juego con route distinto de NULL.
+    Devuelve las empresas que tengan al menos un juego con ruta en la nube (RUTA_NUBE no vacía).
     """
     cursor = db.cursor()
     query = """
-        SELECT DISTINCT c.NOMBRE
-        FROM CONSOLAS c
+        SELECT DISTINCT e.ID, e.NOMBRE
+        FROM EMPRESAS e
+        JOIN CONSOLAS c ON e.ID = c.EMPRESA_ID
         JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
-        JOIN JUEGOS j ON jc.JUEGO_ID = j.ID
-        WHERE j.ROUTE IS NOT NULL
+        WHERE IFNULL(jc.RUTA_NUBE, '') != ''
     """
     cursor.execute(query)
     empresas = cursor.fetchall()
-    return [{"empresa_id": e[0]} for e in empresas]
+    return [{"empresa_id": e[0], "empresa_nombre": e[1]} for e in empresas]
 
 @app.get("/consolas/{empresa_id}")
 def consolas_con_juegos_con_route(empresa_id: int, db: sqlite3.Connection = Depends(get_db)):
     """
-    Devuelve las consolas de una empresa que tengan al menos un juego con route distinto de NULL.
+    Devuelve las consolas de una empresa que tengan al menos un juego con ruta en la nube (valor distinto a '').
     """
     cursor = db.cursor()
     query = """
@@ -177,7 +171,7 @@ def consolas_con_juegos_con_route(empresa_id: int, db: sqlite3.Connection = Depe
         FROM CONSOLAS c
         JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
         JOIN JUEGOS j ON jc.JUEGO_ID = j.ID
-        WHERE c.EMPRESA_ID = ? AND j.ROUTE IS NOT NULL
+        WHERE c.EMPRESA_ID = ? AND IFNULL(jc.RUTA_NUBE, '') != ''
     """
     cursor.execute(query, (empresa_id,))
     consolas = cursor.fetchall()
@@ -190,16 +184,16 @@ def juegos_con_route(
     db: sqlite3.Connection = Depends(get_db)
 ):
     """
-    Devuelve los juegos de una empresa y consola que tengan route distinto de NULL.
+    Devuelve los juegos de una empresa y consola que tengan ruta en la nube.
     """
     cursor = db.cursor()
     query = """
-        SELECT DISTINCT j.ID, j.NOMBRE, j.ROUTE
+        SELECT DISTINCT j.ID, j.NOMBRE, jc.RUTA_NUBE
         FROM JUEGOS j
         JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID
         JOIN CONSOLAS c ON jc.CONSOLA_ID = c.ID
-        WHERE c.EMPRESA_ID = ? AND c.ID = ? AND j.ROUTE IS NOT NULL
+        WHERE c.EMPRESA_ID = ? AND c.ID = ? AND jc.RUTA_NUBE IS NOT NULL AND jc.RUTA_NUBE != ''
     """
     cursor.execute(query, (empresa_id, consola_id))
     juegos = cursor.fetchall()
-    return [{"juego_id": j[0], "nombre": j[1], "route": j[2]} for j in juegos]
+    return [{"juego_id": j[0], "nombre": j[1], "ruta_nube": j[2]} for j in juegos]
