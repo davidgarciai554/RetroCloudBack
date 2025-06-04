@@ -47,6 +47,7 @@ def crear_base_de_datos(conn):
     CREATE TABLE IF NOT EXISTS JUEGOS_CONSOLAS (
       JUEGO_ID INTEGER,
       CONSOLA_ID INTEGER,
+      RUTA_NUBE TEXT DEFAULT '',
       PRIMARY KEY (JUEGO_ID, CONSOLA_ID),
       FOREIGN KEY (JUEGO_ID) REFERENCES JUEGOS(ID),
       FOREIGN KEY (CONSOLA_ID) REFERENCES CONSOLAS(ID)
@@ -235,8 +236,8 @@ def main():
                     VALUES (?,?,?,?,?)
                 """, (gid,name,date,desc,pubs))
                 cur.execute("""
-                    INSERT OR IGNORE INTO JUEGOS_CONSOLAS (JUEGO_ID,CONSOLA_ID)
-                    VALUES (?,?)
+                    INSERT OR IGNORE INTO JUEGOS_CONSOLAS (JUEGO_ID, CONSOLA_ID, RUTA_NUBE)
+                    VALUES (?, ?, '')
                 """, (gid, cid))
                 juegos_descargados += 1
                 juegos_totales += 1
