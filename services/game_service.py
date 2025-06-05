@@ -1,0 +1,91 @@
+import sqlite3
+import os
+from typing import List, Tuple, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+PRINCIPIO_RUTA = os.getenv("PRINCIPIO_RUTA", "")
+
+class GameService:
+    @staticmethod
+    def get_empresas_con_juegos(db: sqlite3.Connection) -> List[Tuple[int, str]]:
+        """Obtiene empresas que tienen juegos con ruta en la nube."""
+        cursor = db.cursor()
+        query = """
+            SELECT DISTINCT e.ID, e.NOMBRE
+            FROM EMPRESAS e
+            JOIN CONSOLAS c ON e.ID = c.EMPRESA_ID
+            JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
+            WHERE IFNULL(jc.RUTA_NUBE, '') != ''
+        """
+        cursor.execute(query)
+        return cursor.fetchall()
+    
+    @staticmethod
+    def get_consolas_por_empresa(db: sqlite3.Connection, empresa_id: int) -> List[Tuple[int, str]]:
+        """Obtiene consolas de una empresa que tienen juegos con ruta en la nube."""
+        cursor = db.cursor()
+        query = """
+            SELECT DISTINCT c.ID, c.NOMBRE
+            FROM CONSOLAS c
+            JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
+            JOIN JUEGOS j ON jc.JUEGO_ID = j.ID
+            WHERE c.EMPRESA_ID = ? AND IFNULL(jc.RUTA_NUBE, '') != ''
+        """
+        cursor.execute(query, (empresa_id,))
+        return cursor.fetchall()
+    
+    @staticmethod
+    def get_todas_consolas_con_juegos(db: sqlite3.Connection) -> List[Tuple[int, str, str]]:
+        """Obtiene todas las consolas que tienen juegos con ruta en la nube."""
+        cursor = db.cursor()
+        query = """
+            SELECT DISTINCT c.ID, c.NOMBRE, e.NOMBRE as EMPRESA_NOMBRE
+            FROM CONSOLAS c
+            JOIN EMPRESAS e ON c.EMPRESA_ID = e.ID
+            JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
+            WHERE IFNULL(jc.RUTA_NUBE, '') != ''
+            ORDER BY e.NOMBRE, c.NOMBRE
+        """
+        cursor.execute(query)
+        return cursor.fetchall()
+    
+    @staticmethod
+    def get_juegos_por_consola(db: sqlite3.Connection, consola_id: int) -> List[Tuple[int, str, Optional[str]]]:
+        """Obtiene juegos de una consola que tienen ruta en la nube."""
+        cursor = db.cursor()
+        query = """
+            SELECT j.ID, j.NOMBRE, j.FECHA_LANZAMIENTO
+            FROM JUEGOS j
+            JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID
+            WHERE jc.CONSOLA_ID = ? AND IFNULL(jc.RUTA_NUBE, '') != ''
+        """
+        cursor.execute(query, (consola_id,))
+        return cursor.fetchall()
+    
+    @staticmethod
+    def registrar_juego(db: sqlite3.Connection, juego_id: int, consola_id: int) -> Optional[str]:
+        """Registra un juego asignando una ruta predeterminada."""
+        cursor = db.cursor()
+        cursor.execute(
+            "SELECT e.NOMBRE, c.NOMBRE, j.NOMBRE FROM JUEGOS j "
+            "JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID "
+            "JOIN CONSOLAS c ON jc.CONSOLA_ID = c.ID "
+            "JOIN EMPRESAS e ON c.EMPRESA_ID = e.ID "
+            "WHERE j.ID = ? AND c.ID = ?",
+            (juego_id, consola_id)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        
+        nombre_empresa, nombre_consola, nombre_juego = row
+        nombre_juego = nombre_juego.strip()
+        ruta = f"{PRINCIPIO_RUTA}/{nombre_empresa}/{nombre_consola}/{nombre_juego}.zip"
+        
+        cursor.execute(
+            "UPDATE JUEGOS_CONSOLAS SET RUTA_NUBE = ? WHERE JUEGO_ID = ? AND CONSOLA_ID = ?",
+            (ruta, juego_id, consola_id)
+        )
+        db.commit()
+        return ruta
