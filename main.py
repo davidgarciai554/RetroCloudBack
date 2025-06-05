@@ -203,17 +203,17 @@ def juegos_con_route(
     juegos = cursor.fetchall()
     return [{"juego_id": j[0], "nombre": j[1], "ruta_nube": j[2]} for j in juegos]
 
-@app.get("/juegos/consola/{consola_id}")
+@app.get("/juegos/{consola_id}")
 def juegos_por_consola(consola_id: int, db: sqlite3.Connection = Depends(get_db)):
     """
-    Devuelve los juegos de una consola por su ID, incluyendo id, nombre, fecha de lanzamiento y descripción.
+    Devuelve los juegos de una consola por su ID que tengan ruta en la nube (RUTA_NUBE no vacía).
     """
     cursor = db.cursor()
     query = """
         SELECT j.ID, j.NOMBRE, j.FECHA_LANZAMIENTO
         FROM JUEGOS j
         JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID
-        WHERE jc.CONSOLA_ID = ?
+        WHERE jc.CONSOLA_ID = ? AND IFNULL(jc.RUTA_NUBE, '') != ''
     """
     cursor.execute(query, (consola_id,))
     juegos = cursor.fetchall()
