@@ -107,14 +107,18 @@ def login(user: UserLogin, db=Depends(get_db)):
     if not row:
         raise HTTPException(status_code=400, detail="Usuario o contraseña incorrectos")
     user_id, hashed_password, rol_id = row
+    
     # Verificar la contraseña ingresada contra el hash almacenado
     if not AuthUtils.verify_password(user.contraseña, hashed_password):
         raise HTTPException(status_code=400, detail="Usuario o contraseña incorrectos")
+    
     # Obtener el nombre del rol
     cursor.execute("SELECT nombre FROM roles WHERE id = ?", (rol_id,))
     rol_row = cursor.fetchone()
+    
     if not rol_row:
         raise HTTPException(status_code=400, detail="Rol no encontrado para el usuario")
+    
     rol_nombre = rol_row[0].lower()  # minúsculas para consistencia con el frontend
     access_token = AuthUtils.create_access_token(data={"sub": user.nombre, "user_id": user_id, "role": rol_nombre})
     return {"access_token": access_token, "token_type": "bearer"}
