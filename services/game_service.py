@@ -89,3 +89,59 @@ class GameService:
         )
         db.commit()
         return ruta
+    
+    @staticmethod
+    def search_all(db: sqlite3.Connection, query: str, search_type: str = "all") -> dict:
+        """Busca en empresas, consolas y juegos según el término de búsqueda."""
+        cursor = db.cursor()
+        search_term = f"%{query.lower()}%"
+        
+        result = {
+            "companies": [],
+            "consoles": [],
+            "games": []
+        }
+        
+        # Buscar empresas
+        if search_type in ["companies", "all"]:
+            companies_query = """
+                SELECT DISTINCT e.ID, e.NOMBRE
+                FROM EMPRESAS e
+                JOIN CONSOLAS c ON e.ID = c.EMPRESA_ID
+                JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
+                WHERE LOWER(e.NOMBRE) LIKE ? AND IFNULL(jc.RUTA_NUBE, '') != ''
+                ORDER BY e.NOMBRE
+            """
+            cursor.execute(companies_query, (search_term,))
+            result["companies"] = [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
+        
+        # Buscar consolas
+        if search_type in ["consoles", "all"]:
+            consoles_query = """
+                SELECT DISTINCT c.ID, c.NOMBRE, c.EMPRESA_ID
+                FROM CONSOLAS c
+                JOIN JUEGOS_CONSOLAS jc ON c.ID = jc.CONSOLA_ID
+                WHERE LOWER(c.NOMBRE) LIKE ? AND IFNULL(jc.RUTA_NUBE, '') != ''
+                ORDER BY c.NOMBRE
+            """
+            cursor.execute(consoles_query, (search_term,))
+            result["consoles"] = [{"id": row[0], "name": row[1], "company_id": row[2]} for row in cursor.fetchall()]
+        
+        # Buscar juegos
+        if search_type in ["games", "all"]:
+            games_query = """
+                SELECT DISTINCT j.ID, j.NOMBRE, jc.CONSOLA_ID, j.FECHA_LANZAMIENTO
+                FROM JUEGOS j
+                JOIN JUEGOS_CONSOLAS jc ON j.ID = jc.JUEGO_ID
+                WHERE LOWER(j.NOMBRE) LIKE ? AND IFNULL(jc.RUTA_NUBE, '') != ''
+                ORDER BY j.NOMBRE
+            """
+            cursor.execute(games_query, (search_term,))
+            result["games"] = [{
+                "id": row[0], 
+                "title": row[1], 
+                "console_id": row[2], 
+                "release_date": row[3]
+            } for row in cursor.fetchall()]
+        
+        return result

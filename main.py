@@ -8,7 +8,7 @@ from database.database import init_db
 from services.database_service import DatabaseService
 
 # Importar routers
-from routers import auth, usuarios, empresas, consolas, juegos
+from routers import auth, usuarios, empresas, consolas, juegos, search
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,6 +39,7 @@ app.include_router(usuarios.router)
 app.include_router(empresas.router)
 app.include_router(consolas.router)
 app.include_router(juegos.router)
+app.include_router(search.router)  # Nuevo router de búsqueda
 
 @lru_cache()
 def get_settings() -> Settings:

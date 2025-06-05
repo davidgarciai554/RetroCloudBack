@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class EmpresaResponse(BaseModel):
     empresa_id: int
@@ -31,3 +31,24 @@ class RegistroJuegoResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: str
+
+# Nuevos modelos para la búsqueda
+class SearchCompanyResponse(BaseModel):
+    id: int
+    name: str
+
+class SearchConsoleResponse(BaseModel):
+    id: int
+    name: str
+    company_id: int
+
+class SearchGameResponse(BaseModel):
+    id: int
+    title: str
+    console_id: int
+    release_date: Optional[str]
+
+class SearchResponse(BaseModel):
+    companies: List[SearchCompanyResponse]
+    consoles: List[SearchConsoleResponse]
+    games: List[SearchGameResponse]
