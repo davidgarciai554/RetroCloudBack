@@ -18,6 +18,18 @@ def juegos_por_consola(consola_id: int, db: sqlite3.Connection = Depends(get_db)
         } for j in juegos
     ]
 
+@router.get("/all/consola/{consola_id}", response_model=List[JuegoResponse])
+def todos_juegos_por_consola(consola_id: int, db: sqlite3.Connection = Depends(get_db)):
+    """Obtiene todos los juegos de una consola sin filtrar por ruta en la nube."""
+    juegos = GameService.get_todos_juegos_por_consola(db, consola_id)
+    return [
+        {
+            "id": j[0],
+            "nombre": j[1],
+            "fecha_lanzamiento": j[2]
+        } for j in juegos
+    ]
+
 @router.post("/registrar", response_model=Union[RegistroJuegoResponse, ErrorResponse])
 def registrar_juego(
     juego_id: int = Body(...), 

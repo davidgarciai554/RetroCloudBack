@@ -12,6 +12,24 @@ def consolas_por_empresa(empresa_id: int, db: sqlite3.Connection = Depends(get_d
     consolas = GameService.get_consolas_por_empresa(db, empresa_id)
     return [{"consola_id": c[0], "nombre": c[1]} for c in consolas]
 
+@router.get("/all", response_model=List[ConsolaConEmpresaResponse])
+def todas_las_consolas(db: sqlite3.Connection = Depends(get_db)):
+    """Obtiene todas las consolas sin filtrar por ruta en la nube."""
+    consolas = GameService.get_todas_consolas(db)
+    return [
+        {
+            "consola_id": c[0],
+            "consola_nombre": c[1],
+            "empresa_nombre": c[2]
+        } for c in consolas
+    ]
+
+@router.get("/all/empresa/{empresa_id}", response_model=List[ConsolaResponse])
+def todas_consolas_por_empresa(empresa_id: int, db: sqlite3.Connection = Depends(get_db)):
+    """Obtiene todas las consolas de una empresa sin filtrar por ruta en la nube."""
+    consolas = GameService.get_consolas_por_empresa_todas(db, empresa_id)
+    return [{"consola_id": c[0], "nombre": c[1]} for c in consolas]
+
 @router.get("/", response_model=List[ConsolaConEmpresaResponse])
 def todas_las_consolas_con_juegos(db: sqlite3.Connection = Depends(get_db)):
     consolas = GameService.get_todas_consolas_con_juegos(db)
